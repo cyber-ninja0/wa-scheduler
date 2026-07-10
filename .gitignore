@@ -1,0 +1,9 @@
+node_modules/
+.env
+auth/
+auth.json
+data.sqlite
+data.sqlite-shm
+data.sqlite-wal
+*.log
+.DS_Store

@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>WA Personal Scheduler</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 20px; }
+    .card { border: 1px solid #ddd; border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+    input, textarea, select { width: 100%; padding: 8px; margin: 6px 0 12px; border-radius: 8px; border: 1px solid #ccc; }
+    button { padding: 10px 12px; border: 0; border-radius: 10px; cursor: pointer; }
+    .primary { background:#2563eb; color:#fff; }
+    .danger { background:#ef4444; color:#fff; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border-bottom: 1px solid #eee; padding: 8px; text-align: left; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    @media (max-width: 700px){ .row { grid-template-columns: 1fr; } }
+    small, .mono { color: #666; }
+    .mono { font-size: 12px; word-break: break-all; }
+    #hint { color: #b45309; min-height: 1.2em; }
+  </style>
+</head>
+<body>
+  <h1>WA Personal Scheduler</h1>
+
+  <div class="card">
+    <h3>Настройки доступа</h3>
+    <input id="adminKey" placeholder="ADMIN_KEY" />
+    <button class="primary" onclick="saveKey()">Сохранить ключ</button>
+    <small>Ключ хранится в localStorage и добавляется в запросы.</small>
+  </div>
+
+  <div class="card">
+    <h3>Создать задачу</h3>
+    <div class="row">
+      <div>
+        <label>Телефон (E.164):</label>
+        <input id="to" placeholder="+54911..." />
+      </div>
+      <div>
+        <label>Время (локальное):</label>
+        <input id="when" type="datetime-local" />
+      </div>
+    </div>
+    <label>Повтор:</label>
+    <select id="repeat">
+      <option value="none">Нет</option>
+      <option value="daily">Ежедневно</option>
+      <option value="weekly">Еженедельно</option>
+    </select>
+    <label>Сообщение:</label>
+    <textarea id="body" rows="4" placeholder="Текст..."></textarea>
+    <button class="primary" onclick="schedule()">Запланировать</button>
+  </div>
+
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <h3>Последние сообщения</h3>
+      <button onclick="refresh()">Обновить</button>
+    </div>
+    <p id="hint"></p>
+    <table>
+      <thead><tr><th>ID</th><th>Кому</th><th>Когда</th><th>Статус</th><th>Повтор</th><th>Действия</th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+
+<script>
+  const LS_KEY = 'ADMIN_KEY';
+
+  function saveKey(){
+    localStorage.setItem(LS_KEY, document.getElementById('adminKey').value.trim());
+    setHint('');
+    refresh();
+  }
+  function getKey(){ return localStorage.getItem(LS_KEY) || ''; }
+  function setHint(text){ document.getElementById('hint').textContent = text; }
+  function authHeaders(){
+    return { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getKey() };
+  }
+
+  document.getElementById('adminKey').value = getKey();
+
+  async function schedule(){
+    const to = document.getElementById('to').value.trim();
+    const when = document.getElementById('when').value;
+    const body = document.getElementById('body').value;
+    const repeat = document.getElementById('repeat').value;
+    if(!to || !when || !body.trim()){
+      alert('Заполни номер, время и текст'); return;
+    }
+    const dt = new Date(when);
+    if (Number.isNaN(dt.getTime())){
+      alert('Некорректная дата'); return;
+    }
+    try {
+      const r = await fetch('/schedule', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ to, body, send_at_iso: dt.toISOString(), repeat })
+      });
+      const data = await r.json();
+      if(!r.ok){ alert('Ошибка: ' + (data.error || r.status)); return; }
+      alert('ОК: ' + data.id);
+      document.getElementById('body').value = '';
+      refresh();
+    } catch (e) {
+      alert('Сеть недоступна: ' + e.message);
+    }
+  }
+
+  async function refresh(){
+    let r;
+    try {
+      r = await fetch('/messages', { headers: { 'Authorization': 'Bearer ' + getKey() } });
+    } catch (e) {
+      setHint('Сервер недоступен.');
+      return;
+    }
+    if (r.status === 401){
+      setHint('Укажите ADMIN_KEY и нажмите «Сохранить ключ».');
+      return;
+    }
+    if (!r.ok){
+      setHint('Ошибка загрузки: ' + r.status);
+      return;
+    }
+    setHint('');
+    const list = await r.json();
+    const tbody = document.getElementById('rows');
+    tbody.textContent = '';
+    for (const m of list){
+      const tr = document.createElement('tr');
+
+      const tdId = document.createElement('td');
+      tdId.className = 'mono';
+      tdId.textContent = m.id;
+      tr.appendChild(tdId);
+
+      const tdTo = document.createElement('td');
+      tdTo.textContent = m.recipient;
+      tr.appendChild(tdTo);
+
+      const tdWhen = document.createElement('td');
+      tdWhen.textContent = new Date(m.send_at * 1000).toLocaleString();
+      tr.appendChild(tdWhen);
+
+      const tdStatus = document.createElement('td');
+      tdStatus.textContent = m.status + (m.encrypted ? ' 🔒' : '');
+      if (m.last_error) tdStatus.title = m.last_error;
+      tr.appendChild(tdStatus);
+
+      const tdRepeat = document.createElement('td');
+      tdRepeat.textContent = m.repeat_type;
+      tr.appendChild(tdRepeat);
+
+      const tdActions = document.createElement('td');
+      if (m.status === 'pending'){
+        const btn = document.createElement('button');
+        btn.className = 'danger';
+        btn.textContent = 'Отмена';
+        btn.addEventListener('click', () => cancelMsg(m.id));
+        tdActions.appendChild(btn);
+      }
+      tr.appendChild(tdActions);
+
+      tbody.appendChild(tr);
+    }
+  }
+
+  async function cancelMsg(id){
+    if(!confirm('Отменить?')) return;
+    try {
+      const r = await fetch('/cancel', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ id })
+      });
+      const data = await r.json().catch(() => ({}));
+      if(!r.ok){ alert('Ошибка: ' + (data.error || r.status)); return; }
+      refresh();
+    } catch (e) {
+      alert('Сеть недоступна: ' + e.message);
+    }
+  }
+
+  refresh();
+</script>
+</body>
+</html>
