@@ -235,7 +235,7 @@ app.post('/schedule', (req, res) => {
   const { to, body, send_at_iso, send_at_epoch, repeat = 'none' } = req.body || {};
 
   const e164 = normalizeToE164(String(to || ''));
-  if (!e164) return res.status(400).json({ error: "Invalid 'to' phone. Use E.164 like +54911..." });
+  if (!e164) return res.status(400).json({ error: "Invalid 'to' phone. Use E.164 like +15551234567." });
 
   const text = typeof body === 'string' ? body.trim() : '';
   if (!text) return res.status(400).json({ error: "Empty 'body'." });

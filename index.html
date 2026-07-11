@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="ru">
+<html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>WA Personal Scheduler</title>
+  <title>WhatsApp Scheduler</title>
   <style>
     body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 20px; }
     .card { border: 1px solid #ddd; border-radius: 12px; padding: 16px; margin-bottom: 16px; }
@@ -21,46 +21,46 @@
   </style>
 </head>
 <body>
-  <h1>WA Personal Scheduler</h1>
+  <h1>WhatsApp Scheduler</h1>
 
   <div class="card">
-    <h3>Настройки доступа</h3>
+    <h3>Access</h3>
     <input id="adminKey" placeholder="ADMIN_KEY" />
-    <button class="primary" onclick="saveKey()">Сохранить ключ</button>
-    <small>Ключ хранится в localStorage и добавляется в запросы.</small>
+    <button class="primary" onclick="saveKey()">Save key</button>
+    <small>The key is stored in localStorage and attached to every request.</small>
   </div>
 
   <div class="card">
-    <h3>Создать задачу</h3>
+    <h3>Schedule a message</h3>
     <div class="row">
       <div>
-        <label>Телефон (E.164):</label>
-        <input id="to" placeholder="+54911..." />
+        <label>Phone (E.164):</label>
+        <input id="to" placeholder="+15551234567" />
       </div>
       <div>
-        <label>Время (локальное):</label>
+        <label>Time (local):</label>
         <input id="when" type="datetime-local" />
       </div>
     </div>
-    <label>Повтор:</label>
+    <label>Repeat:</label>
     <select id="repeat">
-      <option value="none">Нет</option>
-      <option value="daily">Ежедневно</option>
-      <option value="weekly">Еженедельно</option>
+      <option value="none">None</option>
+      <option value="daily">Daily</option>
+      <option value="weekly">Weekly</option>
     </select>
-    <label>Сообщение:</label>
-    <textarea id="body" rows="4" placeholder="Текст..."></textarea>
-    <button class="primary" onclick="schedule()">Запланировать</button>
+    <label>Message:</label>
+    <textarea id="body" rows="4" placeholder="Message text..."></textarea>
+    <button class="primary" onclick="schedule()">Schedule</button>
   </div>
 
   <div class="card">
     <div style="display:flex;justify-content:space-between;align-items:center">
-      <h3>Последние сообщения</h3>
-      <button onclick="refresh()">Обновить</button>
+      <h3>Recent messages</h3>
+      <button onclick="refresh()">Refresh</button>
     </div>
     <p id="hint"></p>
     <table>
-      <thead><tr><th>ID</th><th>Кому</th><th>Когда</th><th>Статус</th><th>Повтор</th><th>Действия</th></tr></thead>
+      <thead><tr><th>ID</th><th>To</th><th>When</th><th>Status</th><th>Repeat</th><th>Actions</th></tr></thead>
       <tbody id="rows"></tbody>
     </table>
   </div>
@@ -87,11 +87,11 @@
     const body = document.getElementById('body').value;
     const repeat = document.getElementById('repeat').value;
     if(!to || !when || !body.trim()){
-      alert('Заполни номер, время и текст'); return;
+      alert('Please fill in the phone, time and message'); return;
     }
     const dt = new Date(when);
     if (Number.isNaN(dt.getTime())){
-      alert('Некорректная дата'); return;
+      alert('Invalid date'); return;
     }
     try {
       const r = await fetch('/schedule', {
@@ -100,12 +100,12 @@
         body: JSON.stringify({ to, body, send_at_iso: dt.toISOString(), repeat })
       });
       const data = await r.json();
-      if(!r.ok){ alert('Ошибка: ' + (data.error || r.status)); return; }
-      alert('ОК: ' + data.id);
+      if(!r.ok){ alert('Error: ' + (data.error || r.status)); return; }
+      alert('Scheduled: ' + data.id);
       document.getElementById('body').value = '';
       refresh();
     } catch (e) {
-      alert('Сеть недоступна: ' + e.message);
+      alert('Network error: ' + e.message);
     }
   }
 
@@ -114,15 +114,15 @@
     try {
       r = await fetch('/messages', { headers: { 'Authorization': 'Bearer ' + getKey() } });
     } catch (e) {
-      setHint('Сервер недоступен.');
+      setHint('Server unreachable.');
       return;
     }
     if (r.status === 401){
-      setHint('Укажите ADMIN_KEY и нажмите «Сохранить ключ».');
+      setHint('Enter your ADMIN_KEY and click "Save key".');
       return;
     }
     if (!r.ok){
-      setHint('Ошибка загрузки: ' + r.status);
+      setHint('Failed to load: ' + r.status);
       return;
     }
     setHint('');
@@ -158,7 +158,7 @@
       if (m.status === 'pending'){
         const btn = document.createElement('button');
         btn.className = 'danger';
-        btn.textContent = 'Отмена';
+        btn.textContent = 'Cancel';
         btn.addEventListener('click', () => cancelMsg(m.id));
         tdActions.appendChild(btn);
       }
@@ -169,7 +169,7 @@
   }
 
   async function cancelMsg(id){
-    if(!confirm('Отменить?')) return;
+    if(!confirm('Cancel this message?')) return;
     try {
       const r = await fetch('/cancel', {
         method: 'POST',
@@ -177,10 +177,10 @@
         body: JSON.stringify({ id })
       });
       const data = await r.json().catch(() => ({}));
-      if(!r.ok){ alert('Ошибка: ' + (data.error || r.status)); return; }
+      if(!r.ok){ alert('Error: ' + (data.error || r.status)); return; }
       refresh();
     } catch (e) {
-      alert('Сеть недоступна: ' + e.message);
+      alert('Network error: ' + e.message);
     }
   }
 
