@@ -291,6 +291,10 @@ app.post('/reschedule', (req, res) => {
   res.json({ ok: true, id, send_at: newAt });
 });
 
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'index.html'));
+});
+
 app.listen(PORT, HOST, () => {
   console.log(`WA Scheduler listening on http://${HOST}:${PORT}`);
   console.log(`UI: http://<host>:${PORT}/ui`);
